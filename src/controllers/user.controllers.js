@@ -65,7 +65,7 @@ const LoginUser = async (req , res) => {
             let refreshToken = jwt.sign({ email: user.email }, process.env.REFRESH_TOKEN_SECRET , {expiresIn: '7d'}); 
             let accessToken = jwt.sign({ email: user.email }, process.env.ACCESS_TOKEN_SECRET , {expiresIn: '2h'});
 
-            res.cookie("refreshToken", refreshToken, { http: true, secure: false });
+            res.cookie("refreshToken", refreshToken, { http: true, secure: true });
 
             res.json({
                 message: 'user logged in successfully',
