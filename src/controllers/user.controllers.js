@@ -53,28 +53,42 @@ const LoginUser = async (req , res) => {
         message: 'password required'
     })
 
-    const user = await Users.findOne({email})
-    
-    bcrypt.compare(password, user.password, async function(err, result) {
+    try {
         
-        if (!result) return res.json({
-            message: 'Incorrect Password'
-        })
-        else if (result) {
-
-            let refreshToken = jwt.sign({ email: user.email }, process.env.REFRESH_TOKEN_SECRET , {expiresIn: '7d'}); 
-            let accessToken = jwt.sign({ email: user.email }, process.env.ACCESS_TOKEN_SECRET , {expiresIn: '2h'});
-
-            res.cookie("refreshToken", refreshToken, { http: true, secure: true });
-
-            res.json({
-                message: 'user logged in successfully',
-                refreshToken,
-                accessToken,
-                user
+        const user = await Users.findOne({email})
+        
+        await bcrypt.compare(password, user.password, async function(err, result) {
+            
+            if (!result) return res.json({
+                message: 'Incorrect Password'
             })
-        }
-    });
+            else if (result) {
+    
+                let refreshToken = jwt.sign({ email: user.email }, process.env.REFRESH_TOKEN_SECRET , {expiresIn: '7d'}); 
+                let accessToken = jwt.sign({ email: user.email }, process.env.ACCESS_TOKEN_SECRET , {expiresIn: '2h'});
+    
+                // res.cookie("refreshToken", refreshToken, { httpOnly: true, secure: true , sameSite: 'None' });
+                
+                res.cookie("refreshToken", refreshToken, { 
+                    httpOnly: true, 
+                    secure: process.env.NODE_ENV === 'production',
+                    // secure: false,
+                    sameSite: 'None', 
+                });
+                
+                res.json({
+                    message: 'user logged in successfully',
+                    refreshToken,
+                    accessToken,
+                    user
+                })
+            }
+        });
+    } catch (error) {
+        res.json({
+            error
+        })
+    }
 }
 
 const logoutUser = async (req, res) => {
@@ -112,15 +126,29 @@ const regenerateAccessToken = async (req , res) => {
 
 const authenticateUser = async (req, res, next) => {
     const token = req.headers["authorization"];
-    if (!token) return res.status(404).json({ message: "no token found"});
-
-    const tokenWithoutBearer = token.split(" ").splice(1 , 1)[0];
+    const refreshToken = req.cookies.refreshToken; // Get refreshToken from cookies
     
+    console.log(refreshToken); // For debugging, ensure the refreshToken is being read from cookies
+    
+    if (!token) return res.status(404).json({ message: "no token found" });
+
+    const tokenWithoutBearer = token.split(" ").splice(1, 1)[0]; // Extract token part from "Bearer <token>"
+
     jwt.verify(tokenWithoutBearer, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ message: "invalid token" , err});
+        if (err) {
+            // Return error with refreshToken in response
+            return res.status(403).json({
+                message: "invalid token",
+                refreshToken: refreshToken, // Send refreshToken from cookies
+                err
+            });
+        }
+
+        // If token is valid, proceed with the middleware
         res.json({
-            message: "valid access token"
-        })
+            message: "valid access token",
+            refreshToken // Include refreshToken even for valid access token, if needed
+        });
         next();
     });
 };

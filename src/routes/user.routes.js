@@ -8,6 +8,6 @@ router.post ('/login' , LoginUser)
 router.post ('/logout' , logoutUser)
 router.post ('/generateAccessToken' , regenerateAccessToken)
 
-router.get ('/userData' , authenticateUser )
+router.get ('/userData' , authenticateUser)
 
 export default router
